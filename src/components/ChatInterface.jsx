@@ -1,57 +1,68 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import './Chat.css'; 
 
 const ChatInterface = ({ token, onLogout, role }) => {
-    const [messages, setMessages] = useState([]); // Bỏ tin nhắn mặc định để chờ load lịch sử
+    const [sessions, setSessions] = useState([]);
+    const [currentSessionId, setCurrentSessionId] = useState(null);
+    const [messages, setMessages] = useState([
+        { role: 'assistant', content: 'Xin chào! Tôi là trợ lý AI. Bạn cần giúp gì về môn Tin học?' }
+    ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef(null);
-    const navigate = useNavigate();
 
-    // Tự động cuộn xuống cuối
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
     useEffect(scrollToBottom, [messages]);
 
-    // --- MỚI: TỰ ĐỘNG TẢI LỊCH SỬ CHAT KHI VÀO TRANG ---
     useEffect(() => {
-        const fetchHistory = async () => {
-            if (!token) return;
-            try {
-                // Gọi API lấy lịch sử (Lưu ý: đường dẫn không có dấu / ở cuối theo urls.py của bạn)
-                const res = await axios.get('http://127.0.0.1:8000/api/chat/history', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+        fetchSessions();
+    }, []);
 
-                // Xử lý dữ liệu trả về từ Server để khớp với giao diện
-                // Giả sử server trả về mảng: [{ message: "...", is_user: true }, ...]
-                // Nếu cấu trúc khác, bạn cần sửa lại đoạn map bên dưới nhé
-                if (Array.isArray(res.data)) {
-                    const formattedHistory = res.data.map(item => ({
-                        role: item.is_user ? 'user' : 'assistant', // Kiểm tra xem server trả về cờ gì để biết ai chat
-                        content: item.message || item.content // Lấy nội dung tin nhắn
-                    }));
-                    setMessages(formattedHistory);
-                } else {
-                    // Nếu không có lịch sử thì hiện câu chào
-                    setMessages([{ role: 'assistant', content: 'Xin chào! Tôi có thể giúp gì cho bạn?' }]);
-                }
-            } catch (err) {
-                console.error("Lỗi tải lịch sử:", err);
-                // Nếu lỗi thì vẫn hiện câu chào
-                setMessages([{ role: 'assistant', content: 'Xin chào! (Không tải được lịch sử cũ)' }]);
-            }
-        };
+    const fetchSessions = async () => {
+        try {
+            const res = await axios.get('http://127.0.0.1:8000/api/chat/history', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSessions(res.data);
+        } catch (err) { console.error("Lỗi tải lịch sử"); }
+    };
 
-        fetchHistory();
-        // eslint-disable-next-line
-    }, [token]);
+    const handleSelectSession = async (sessionId) => {
+    if (!sessionId || sessionId === 'undefined') return;
+    setCurrentSessionId(sessionId);
+    setLoading(true);
+    try {
+        const res = await axios.get(`http://127.0.0.1:8000/api/chat/history?session_id=${sessionId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        // Mapping lại cho đúng (Giả sử Backend trả về: role, content)
+        const history = res.data.map(m => ({
+            role: m.role,      // 'user' hoặc 'assistant'
+            content: m.content, // Nội dung chữ
+            source: m.sources?.source,
+            doc_link: m.sources?.doc_link,
+        }));
+
+        setMessages(history);
+    } catch (err) {
+        console.error("Lỗi:", err);
+    } finally {
+        setLoading(false);
+    }
+};
+
+    const handleNewChat = () => {
+        setCurrentSessionId(null);
+        setMessages([{ role: 'assistant', content: 'Sẵn sàng cho đoạn chat mới!' }]);
+    };
 
     const handleSend = async (e) => {
         e.preventDefault();
-        if (!input.trim()) return;
+        if (!input.trim() || loading) return;
 
         const userMsg = { role: 'user', content: input };
         setMessages(prev => [...prev, userMsg]);
@@ -59,74 +70,123 @@ const ChatInterface = ({ token, onLogout, role }) => {
         setLoading(true);
 
         try {
-            // Gọi API dự đoán (predict)
-            const res = await axios.post('http://127.0.0.1:8000/api/chat/predict', {
-                message: input 
+            const res = await axios.post('http://127.0.0.1:8000/api/chat/', {
+                message: input,
+                session_id: currentSessionId
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            const botMsg = { role: 'assistant', content: res.data.response || res.data.message };
-            setMessages(prev => [...prev, botMsg]);
+            if (!currentSessionId) {
+                setCurrentSessionId(res.data.session_id);
+                fetchSessions();
+            }
+
+            setMessages(prev => [...prev, { 
+                role: 'assistant', 
+                content: res.data.data,
+                source: res.data.meta?.source,
+                doc_link: res.data.doc_link, 
+            }]);
         } catch (err) {
-            console.error(err);
-            setMessages(prev => [...prev, { role: 'assistant', content: 'Lỗi kết nối server!' }]);
+            setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Lỗi kết nối server.' }]);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div style={{ maxWidth: '600px', margin: '20px auto', border: '1px solid #ddd', borderRadius: '10px', display: 'flex', flexDirection: 'column', height: '80vh' }}>
-            <div style={{ padding: '15px', background: '#007bff', color: 'white', borderRadius: '10px 10px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Chatbot Hỗ trợ</h3>
-                <div>
-                    {(role === 'admin' || role === 'manager') && (
-                        <button 
-                            onClick={() => navigate('/documents')} 
-                            style={{ marginRight: '10px', background: 'white', color: '#007bff', border: 'none', padding: '5px 10px', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold' }}
-                        >
-                            ⚙️ Quản lý
-                        </button>
-                    )}
-                    <button onClick={onLogout} style={{ background: '#ff4d4f', color: 'white', border: 'none', padding: '5px 10px', cursor: 'pointer', borderRadius: '4px' }}>
-                        Đăng xuất
-                    </button>
-                </div>
-            </div>
-
-            <div style={{ flex: 1, padding: '20px', overflowY: 'auto', background: '#f9f9f9' }}>
-                {messages.map((msg, index) => (
-                    <div key={index} style={{ 
-                        display: 'flex', 
-                        justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                        marginBottom: '10px'
-                    }}>
-                        <div style={{ 
-                            maxWidth: '70%', 
-                            padding: '10px 15px', 
-                            borderRadius: '15px', 
-                            background: msg.role === 'user' ? '#007bff' : '#e9ecef',
-                            color: msg.role === 'user' ? 'white' : 'black'
-                        }}>
-                            {msg.content}
-                        </div>
-                    </div>
-                ))}
-                {loading && <div style={{ color: '#aaa', fontStyle: 'italic' }}>Bot đang suy nghĩ...</div>}
-                <div ref={messagesEndRef} />
-            </div>
-
-            <form onSubmit={handleSend} style={{ padding: '15px', borderTop: '1px solid #ddd', display: 'flex' }}>
-                <input 
-                    type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                    placeholder="Nhập câu hỏi..." 
-                    style={{ flex: 1, padding: '10px', borderRadius: '20px', border: '1px solid #ccc', outline: 'none' }}
-                />
-                <button type="submit" style={{ marginLeft: '10px', padding: '10px 20px', background: '#007bff', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer' }}>
-                    Gửi
+        <div className="app-container">
+            {/* Sidebar */}
+            <aside className="sidebar">
+                <button className="new-chat-btn" onClick={handleNewChat}>
+                    <span>+</span> Cuộc trò chuyện mới
                 </button>
-            </form>
+                
+                <div className="history-section">
+                    <p className="section-title">Gần đây</p>
+                    <div className="session-list">
+                        {sessions.map(s => (
+                            <div 
+                                key={s.session_id} 
+                                className={`session-item ${currentSessionId === s.session_id ? 'active' : ''}`}
+                                onClick={() => handleSelectSession(s.session_id)}
+                            >
+                                <span className="icon-msg">💬</span>
+                                <span className="session-title-text">{s.title}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="sidebar-footer">
+                    <div className="user-info">
+                        <div className="avatar">{role === 'admin' ? 'A' : 'U'}</div>
+                        <span>Người dùng</span>
+                    </div>
+                    <button className="logout-btn" onClick={onLogout}>Đăng xuất</button>
+                </div>
+            </aside>
+
+            {/* Main Chat Area */}
+            <main className="chat-main">
+                <header className="chat-header">
+                    <h2>Chatbot</h2>
+                    {currentSessionId && <span className="session-status">ID: {currentSessionId}</span>}
+                </header>
+
+                <div className="messages-list">
+                    {messages.map((msg, i) => (
+                        <div key={i} className={`message-wrapper ${msg.role}`}>
+                            <div className="message-bubble">
+                                <div className="text-content">{msg.content}</div>
+                                {msg.source && (
+                                    <>
+                                    <div className="source-label">
+                                        {msg.source === 'database' ? '📚 Sách giáo khoa' : '✨ AI'}
+                                    </div>
+                                    {msg.doc_link && (
+                                        <a 
+                                            href={msg.doc_link} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="doc-link"
+                                            style={{ color: '#007bff', fontWeight: 'bold', textDecoration: 'none' }}
+                                        >
+                                            📄 Xem tài liệu gốc
+                                        </a>
+                                    )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                    {loading && (
+                        <div className="message-wrapper assistant">
+                            <div className="message-bubble loading">
+                                <span className="dot">.</span><span className="dot">.</span><span className="dot">.</span>
+                            </div>
+                        </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
+
+                <footer className="input-area">
+                    <form className="input-container" onSubmit={handleSend}>
+                        <input 
+                            type="text" 
+                            placeholder="Hỏi tôi bất cứ điều gì về Tin học..." 
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            disabled={loading}
+                        />
+                        <button type="submit" className="send-btn" disabled={loading || !input.trim()}>
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                        </button>
+                    </form>
+                    <p className="footer-note">Hệ thống có thể đưa ra câu trả lời nhầm lẫn. Hãy kiểm tra lại thông tin quan trọng.</p>
+                </footer>
+            </main>
         </div>
     );
 };
