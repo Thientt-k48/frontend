@@ -1,67 +1,68 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import '../App.css'; 
+import { useNavigate } from 'react-router-dom'; // 1. IMPORT useNavigate
 
-const Login = ({ onLoginSuccess }) => {
+const Login = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+    
+    // 2. KHỞI TẠO navigate
+    const navigate = useNavigate(); 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        setLoading(true);
 
         try {
-            // Thay đổi URL này cho đúng với API Login trong Django của bạn
-            const response = await axios.post('http://127.0.0.1:8000/api/auth/login', {
-                username: username,
-                password: password
+            // Gọi API đăng nhập tới Backend Django của bạn
+            const response = await axios.post('http://localhost:8000/api/auth/login', {
+                username,
+                password
             });
 
-            // Sau khi login thành công, trả Token và Role về cho App.js
-            const { access, role } = response.data;
-            onLoginSuccess(access, role);
+            // Lấy token và thông tin user từ kết quả trả về
+            const { access, role } = response.data; // GIẢ SỬ backend trả về biến role
+
+            // Lưu token vào bộ nhớ trình duyệt để dùng cho các request sau
+            localStorage.setItem('accessToken', access);
+            localStorage.setItem('userRole', role);
+
+            // 3. ĐIỀU HƯỚNG THEO ROLE
+            if (role === 'admin') {
+                navigate('/admin'); // Admin vào trang quản lý
+            } else {
+                navigate('/chat');  // Học sinh vào khung chat
+            }
 
         } catch (err) {
-            console.error(err);
-            setError('Tên đăng nhập hoặc mật khẩu không đúng!');
-        } finally {
-            setLoading(false);
+            setError('Sai tài khoản hoặc mật khẩu!');
         }
     };
 
     return (
-        <div className="login-container">
-            <form className="login-form" onSubmit={handleSubmit}>
-                <h2>Đăng Nhập Hệ Thống</h2>
-                {error && <p className="error-msg">{error}</p>}
-                
-                <div className="input-group">
-                    <label>Tài khoản:</label>
-                    <input 
-                        type="text" 
-                        value={username} 
-                        onChange={(e) => setUsername(e.target.value)} 
-                        required 
-                    />
-                </div>
-
-                <div className="input-group">
-                    <label>Mật khẩu:</label>
-                    <input 
-                        type="password" 
-                        value={password} 
-                        onChange={(e) => setPassword(e.target.value)} 
-                        required 
-                    />
-                </div>
-
-                <button type="submit" disabled={loading}>
-                    {loading ? 'Đang kiểm tra...' : 'Đăng nhập'}
+        <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #ccc' }}>
+            <h2>Đăng Nhập</h2>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <input 
+                    type="text" 
+                    placeholder="Tên đăng nhập" 
+                    value={username} 
+                    onChange={(e) => setUsername(e.target.value)} 
+                    required 
+                />
+                <input 
+                    type="password" 
+                    placeholder="Mật khẩu" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    required 
+                />
+                <button type="submit" style={{ padding: '10px', background: '#28a745', color: '#fff', border: 'none' }}>
+                    Đăng Nhập
                 </button>
             </form>
+            {error && <p style={{ color: 'red' }}>{error}</p>}
         </div>
     );
 };

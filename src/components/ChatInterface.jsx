@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import './Chat.css'; 
 
-const ChatInterface = ({ token, onLogout, role }) => {
+const ChatInterface = () => {
     const [sessions, setSessions] = useState([]);
     const [currentSessionId, setCurrentSessionId] = useState(null);
     const [messages, setMessages] = useState([
@@ -11,6 +12,10 @@ const ChatInterface = ({ token, onLogout, role }) => {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef(null);
+
+    const navigate = useNavigate();
+    const token = localStorage.getItem('accessToken');
+    const role = localStorage.getItem('userRole');
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -94,6 +99,14 @@ const ChatInterface = ({ token, onLogout, role }) => {
             setLoading(false);
         }
     };
+    const handleLogout = () => {
+        // Xóa sạch dữ liệu đăng nhập
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('userRole');
+        
+        // Đá người dùng về lại trang login
+        navigate('/login');
+    };
 
     return (
         <div className="app-container">
@@ -124,7 +137,7 @@ const ChatInterface = ({ token, onLogout, role }) => {
                         <div className="avatar">{role === 'admin' ? 'A' : 'U'}</div>
                         <span>Người dùng</span>
                     </div>
-                    <button className="logout-btn" onClick={onLogout}>Đăng xuất</button>
+                    <button className="logout-btn" onClick={handleLogout}>Đăng xuất</button>
                 </div>
             </aside>
 
