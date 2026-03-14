@@ -13,11 +13,34 @@ const DocumentUpload = () => {
 
     const navigate = useNavigate();
 
+    const [documents, setDocuments] = useState([]);
+    const navigate = useNavigate();
+    
     const handleLogout = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('userRole');
         navigate('/login');
     };
+    
+    // LẤY TOKEN GẮN VÀO HEADER DÙNG CHUNG
+    const getAuthHeaders = () => ({
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+    });
+
+    // HÀM LẤY DANH SÁCH TÀI LIỆU KHI VÀO TRANG
+    const fetchDocuments = async () => {
+        try {
+            const res = await axios.get('http://localhost:8000/api/docs/', getAuthHeaders());
+            setDocuments(res.data);
+        } catch (error) {
+            console.error("Lỗi lấy danh sách tài liệu:", error);
+        }
+    };
+
+    // Chạy 1 lần khi load trang
+    useEffect(() => {
+        fetchDocuments();
+    }, []);
 
     // THÊM HÀM XỬ LÝ KHI THAY ĐỔI LỚP
     const handleGradeChange = (e) => {
@@ -51,17 +74,16 @@ const DocumentUpload = () => {
         setMessage('');
 
         try {
-            const token = localStorage.getItem('accessToken');
-            
             await axios.post('http://localhost:8000/api/docs/upload/', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
-                    'Authorization': `Bearer ${token}` 
+                    ...getAuthHeaders().headers
                 }
             });
-            setMessage(`Upload thành công! Sách đã được đưa vào hệ thống.`);
+            setMessage(`Upload thành công!`);
             setFile(null);
             setTitle('');
+            fetchDocuments(); // GỌI LẠI HÀM NÀY ĐỂ CẬP NHẬT DANH SÁCH MỚI
         } catch (error) {
             setMessage('Lỗi khi upload: ' + (error.response?.data?.error || error.message));
         } finally {
@@ -69,6 +91,16 @@ const DocumentUpload = () => {
         }
     };
 
+    // HÀM XỬ LÝ KHI BẤM NÚT "XỬ LÝ DỮ LIỆU"
+    const handleProcess = async (docId) => {
+        try {
+            await axios.post(`http://localhost:8000/api/docs/process/${docId}/`, {}, getAuthHeaders());
+            alert("Đã gửi yêu cầu xử lý thành công! Hệ thống đang chạy ngầm.");
+            fetchDocuments(); // Tải lại để cập nhật status thành 'processing'
+        } catch (error) {
+            alert('Lỗi: ' + (error.response?.data?.message || error.message));
+        }
+    };
     return (
         <div style={{ padding: '20px', maxWidth: '500px', margin: '0 auto', fontFamily: 'Arial' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -86,6 +118,48 @@ const DocumentUpload = () => {
                 >
                     Đăng xuất
                 </button>
+                <hr style={{ margin: '30px 0' }} />
+
+                {/* THÊM PHẦN HIỂN THỊ DANH SÁCH TÀI LIỆU */}
+                <h3>Danh sách Sách Giáo Khoa trên hệ thống</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                    <thead>
+                        <tr style={{ background: '#f4f4f4', textAlign: 'left' }}>
+                            <th style={{ padding: '10px', border: '1px solid #ddd' }}>ID</th>
+                            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Tên Sách</th>
+                            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Trạng thái</th>
+                            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {documents.map((doc) => (
+                            <tr key={doc.id}>
+                                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{doc.id}</td>
+                                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{doc.title}</td>
+                                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold', 
+                                    color: doc.status === 'processing' ? 'orange' : (doc.status === 'completed' ? 'green' : 'black') 
+                                }}>
+                                    {doc.status.toUpperCase()}
+                                </td>
+                                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                                    {doc.status === 'uploaded' && (
+                                        <button 
+                                            onClick={() => handleProcess(doc.id)}
+                                            style={{ background: '#28a745', color: 'white', border: 'none', padding: '5px 10px', cursor: 'pointer', borderRadius: '3px' }}
+                                        >
+                                            Chạy Xử Lý (ETL)
+                                        </button>
+                                    )}
+                                    {doc.status === 'processing' && <span>⏳ Đang xử lý...</span>}
+                                    {doc.status === 'completed' && <span>✅ Đã nạp</span>}
+                                </td>
+                            </tr>
+                        ))}
+                        {documents.length === 0 && (
+                            <tr><td colSpan="4" style={{ textAlign: 'center', padding: '10px' }}>Chưa có tài liệu nào.</td></tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
 
             <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>

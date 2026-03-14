@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import './Chat.css'; 
+import './Chat.css';
+import ReactMarkdown from 'react-markdown' 
 
 const ChatInterface = () => {
     const [sessions, setSessions] = useState([]);
@@ -152,7 +153,9 @@ const ChatInterface = () => {
                     {messages.map((msg, i) => (
                         <div key={i} className={`message-wrapper ${msg.role}`}>
                             <div className="message-bubble">
-                                <div className="text-content">{msg.content}</div>
+                                <div className="text-content markdown-body">
+                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                </div>
                                 {msg.source && (
                                     <>
                                     <div className="source-label">
