@@ -11,8 +11,6 @@ const DocumentUpload = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
 
-    const navigate = useNavigate();
-
     const [documents, setDocuments] = useState([]);
     const navigate = useNavigate();
     
