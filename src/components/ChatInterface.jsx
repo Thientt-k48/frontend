@@ -29,7 +29,7 @@ const ChatInterface = () => {
 
     const fetchSessions = async () => {
         try {
-            const res = await axios.get('http://127.0.0.1:8000/api/chat/history', {
+            const res = await axios.get('http://localhost:8000/api/chat/history', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSessions(res.data);
@@ -41,7 +41,7 @@ const ChatInterface = () => {
     setCurrentSessionId(sessionId);
     setLoading(true);
     try {
-        const res = await axios.get(`http://127.0.0.1:8000/api/chat/history?session_id=${sessionId}`, {
+        const res = await axios.get(`http://localhost:8000/api/chat/history?session_id=${sessionId}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -76,7 +76,7 @@ const ChatInterface = () => {
         setLoading(true);
 
         try {
-            const res = await axios.post('http://127.0.0.1:8000/api/chat/', {
+            const res = await axios.post('http://localhost:8000/api/chat/', {
                 message: input,
                 session_id: currentSessionId
             }, {

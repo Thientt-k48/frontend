@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+
 
 const DocumentUpload = () => {
     const [file, setFile] = useState(null);
@@ -38,6 +39,7 @@ const DocumentUpload = () => {
     // Chạy 1 lần khi load trang
     useEffect(() => {
         fetchDocuments();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // THÊM HÀM XỬ LÝ KHI THAY ĐỔI LỚP
@@ -100,7 +102,9 @@ const DocumentUpload = () => {
         }
     };
     return (
-        <div style={{ padding: '20px', maxWidth: '500px', margin: '0 auto', fontFamily: 'Arial' }}>
+        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'Arial' }}>
+            
+            {/* --- 1. PHẦN HEADER --- */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h2 style={{ margin: 0 }}>Quản lý Sách Giáo Khoa</h2>
                 <button 
@@ -116,50 +120,72 @@ const DocumentUpload = () => {
                 >
                     Đăng xuất
                 </button>
-                <hr style={{ margin: '30px 0' }} />
+            </div> 
+            {/* ĐÓNG THẺ DIV HEADER Ở ĐÂY - CHẶN VIỆC FLEXBOX ÉP CÁC PHẦN TỬ NẰM NGANG */}
 
-                {/* THÊM PHẦN HIỂN THỊ DANH SÁCH TÀI LIỆU */}
-                <h3>Danh sách Sách Giáo Khoa trên hệ thống</h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-                    <thead>
-                        <tr style={{ background: '#f4f4f4', textAlign: 'left' }}>
-                            <th style={{ padding: '10px', border: '1px solid #ddd' }}>ID</th>
-                            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Tên Sách</th>
-                            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Trạng thái</th>
-                            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Hành động</th>
+            <hr style={{ margin: '30px 0' }} />
+
+            {/* --- 2. PHẦN BẢNG DANH SÁCH TÀI LIỆU --- */}
+            <h3>Danh sách Sách Giáo Khoa trên hệ thống</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', marginBottom: '30px' }}>
+                <thead>
+                    <tr style={{ background: '#f4f4f4', textAlign: 'left' }}>
+                        <th style={{ padding: '10px', border: '1px solid #ddd' }}>ID</th>
+                        <th style={{ padding: '10px', border: '1px solid #ddd' }}>Tên Sách</th>
+                        <th style={{ padding: '10px', border: '1px solid #ddd' }}>Trạng thái</th>
+                        <th style={{ padding: '10px', border: '1px solid #ddd' }}>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {documents.map((doc) => (
+                        <tr key={doc.id}>
+                            <td style={{ padding: '10px', border: '1px solid #ddd' }}>{doc.id}</td>
+                            <td style={{ padding: '10px', border: '1px solid #ddd' }}>{doc.title}</td>
+                            
+                            {/* Cột Trạng thái (Xử lý màu cho trạng thái failed) */}
+                            <td style={{ 
+                                padding: '10px', 
+                                border: '1px solid #ddd', 
+                                fontWeight: 'bold', 
+                                color: doc.status === 'processing' ? 'orange' : 
+                                      (doc.status === 'completed' ? 'green' : 
+                                      (doc.status === 'failed' ? 'red' : 'black')) 
+                            }}>
+                                {doc.status.toUpperCase()}
+                            </td>
+                            
+                            {/* Cột Hành động (Xử lý hiện nút Thử lại nếu bị FAILED) */}
+                            <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                                {(doc.status === 'uploaded' || doc.status === 'failed') && (
+                                    <button 
+                                        onClick={() => handleProcess(doc.id)}
+                                        style={{ 
+                                            background: doc.status === 'failed' ? '#dc3545' : '#28a745', 
+                                            color: 'white', 
+                                            border: 'none', 
+                                            padding: '5px 10px', 
+                                            cursor: 'pointer', 
+                                            borderRadius: '3px' 
+                                        }}
+                                    >
+                                        {doc.status === 'failed' ? '🔄 Thử lại (Retry)' : 'Chạy Xử Lý (ETL)'}
+                                    </button>
+                                )}
+                                {doc.status === 'processing' && <span>⏳ Đang xử lý...</span>}
+                                {doc.status === 'completed' && <span>✅ Đã nạp</span>}
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {documents.map((doc) => (
-                            <tr key={doc.id}>
-                                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{doc.id}</td>
-                                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{doc.title}</td>
-                                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold', 
-                                    color: doc.status === 'processing' ? 'orange' : (doc.status === 'completed' ? 'green' : 'black') 
-                                }}>
-                                    {doc.status.toUpperCase()}
-                                </td>
-                                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                                    {doc.status === 'uploaded' && (
-                                        <button 
-                                            onClick={() => handleProcess(doc.id)}
-                                            style={{ background: '#28a745', color: 'white', border: 'none', padding: '5px 10px', cursor: 'pointer', borderRadius: '3px' }}
-                                        >
-                                            Chạy Xử Lý (ETL)
-                                        </button>
-                                    )}
-                                    {doc.status === 'processing' && <span>⏳ Đang xử lý...</span>}
-                                    {doc.status === 'completed' && <span>✅ Đã nạp</span>}
-                                </td>
-                            </tr>
-                        ))}
-                        {documents.length === 0 && (
-                            <tr><td colSpan="4" style={{ textAlign: 'center', padding: '10px' }}>Chưa có tài liệu nào.</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                    ))}
+                    {documents.length === 0 && (
+                        <tr><td colSpan="4" style={{ textAlign: 'center', padding: '10px' }}>Chưa có tài liệu nào.</td></tr>
+                    )}
+                </tbody>
+            </table>
 
+            <hr style={{ margin: '30px 0' }} />
+            
+            {/* --- 3. PHẦN FORM UPLOAD --- */}
+            <h3>Thêm tài liệu mới</h3>
             <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div>
                     <label>Tiêu đề (Tùy chọn):</label><br/>
@@ -175,7 +201,6 @@ const DocumentUpload = () => {
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <div style={{ flex: 1 }}>
                         <label>Lớp:</label><br/>
-                        {/* Gọi hàm handleGradeChange thay vì setGrade trực tiếp */}
                         <select value={grade} onChange={handleGradeChange} style={{ width: '100%', padding: '8px' }}>
                             <option value="10">Lớp 10</option>
                             <option value="11">Lớp 11</option>
@@ -184,12 +209,11 @@ const DocumentUpload = () => {
                     </div>
                     <div style={{ flex: 1 }}>
                         <label>Định hướng:</label><br/>
-                        {/* Ẩn hiện Option linh hoạt dựa vào biến grade */}
                         <select 
                             value={orientation} 
                             onChange={(e) => setOrientation(e.target.value)} 
                             style={{ width: '100%', padding: '8px', backgroundColor: grade === '10' ? '#e9ecef' : '#fff' }}
-                            disabled={grade === '10'} // Khóa ô chọn nếu là lớp 10
+                            disabled={grade === '10'}
                         >
                             {grade === '10' ? (
                                 <option value="Chung">Chung (Không phân ban)</option>
