@@ -101,6 +101,19 @@ const DocumentUpload = () => {
             alert('Lỗi: ' + (error.response?.data?.message || error.message));
         }
     };
+
+    const handleCancel = async (id) => {
+        if (!window.confirm("Bạn có chắc chắn muốn dừng quá trình xử lý tài liệu này?")) return;
+        
+        try {
+            await axios.post(`http://localhost:8000/api/docs/cancel/${id}/`, {}, getAuthHeaders());
+            setMessage('Đã gửi lệnh dừng tiến trình xử lý.');
+            fetchDocuments(); // Tải lại danh sách ngay lập tức để cập nhật trạng thái
+        } catch (error) {
+            console.error("Lỗi khi hủy xử lý:", error);
+            setMessage('Lỗi khi hủy tiến trình xử lý. ' + (error.response?.data?.error || ''));
+        }
+    };
     return (
         <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'Arial' }}>
             
@@ -153,7 +166,64 @@ const DocumentUpload = () => {
                             }}>
                                 {doc.status.toUpperCase()}
                             </td>
+                            <td style={{ 
+                                padding: '10px', 
+                                border: '1px solid #ddd', 
+                                fontWeight: 'bold', 
+                                color: doc.status === 'processing' ? 'orange' : 
+                                      (doc.status === 'completed' ? 'green' : 
+                                      (doc.status === 'failed' ? 'red' : 
+                                      (doc.status === 'cancelled' ? 'gray' : 'black'))) 
+                            }}>
+                                {doc.status === 'cancelled' ? 'ĐÃ HỦY' : doc.status.toUpperCase()}
+                            </td>
                             
+                            {/* --- Cột Hành động --- */}
+                            <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                                
+                                {/* Hiện nút Xử lý/Thử lại nếu là uploaded, failed hoặc cancelled */}
+                                {(doc.status === 'uploaded' || doc.status === 'failed' || doc.status === 'cancelled') && (
+                                    <button 
+                                        onClick={() => handleProcess(doc.id)}
+                                        style={{ 
+                                            background: doc.status === 'uploaded' ? '#28a745' : '#ffc107', 
+                                            color: doc.status === 'uploaded' ? 'white' : 'black', 
+                                            border: 'none', 
+                                            padding: '5px 10px', 
+                                            cursor: 'pointer', 
+                                            borderRadius: '3px',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        {doc.status === 'uploaded' ? '▶️ Chạy Xử Lý (ETL)' : '🔄 Thử lại (Retry)'}
+                                    </button>
+                                )}
+
+                                {/* Nếu đang xử lý -> Hiện chữ đang xử lý + Nút Dừng */}
+                                {doc.status === 'processing' && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontStyle: 'italic', color: 'orange' }}>⏳ Đang xử lý...</span>
+                                        <button 
+                                            onClick={() => handleCancel(doc.id)}
+                                            style={{ 
+                                                background: '#dc3545', 
+                                                color: 'white', 
+                                                border: 'none', 
+                                                padding: '4px 8px', 
+                                                cursor: 'pointer', 
+                                                borderRadius: '3px',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            🛑 Dừng
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Nếu hoàn tất */}
+                                {doc.status === 'completed' && <span style={{ color: 'green', fontWeight: 'bold' }}>✅ Đã nạp</span>}
+                            </td>
                             {/* Cột Hành động (Xử lý hiện nút Thử lại nếu bị FAILED) */}
                             <td style={{ padding: '10px', border: '1px solid #ddd' }}>
                                 {(doc.status === 'uploaded' || doc.status === 'failed') && (
