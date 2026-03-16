@@ -16,10 +16,10 @@ const Login = () => {
 
         try {
             // Gọi API đăng nhập tới Backend Django của bạn
-            const response = await axios.post('http://localhost:8000/api/auth/login', {
-                username,
-                password
-            });
+            const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+            const response = await axios.post(`${API_BASE_URL}/api/auth/login`, { username, password });
+            
 
             // Lấy token và thông tin user từ kết quả trả về
             const { access, role } = response.data; // GIẢ SỬ backend trả về biến role

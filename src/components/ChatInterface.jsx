@@ -17,7 +17,7 @@ const ChatInterface = () => {
     const navigate = useNavigate();
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('userRole');
-
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
@@ -29,7 +29,7 @@ const ChatInterface = () => {
 
     const fetchSessions = async () => {
         try {
-            const res = await axios.get('http://localhost:8000/api/chat/history', {
+            const res = await axios.get(`${API_BASE_URL}/api/chat/history`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSessions(res.data);
@@ -41,7 +41,8 @@ const ChatInterface = () => {
     setCurrentSessionId(sessionId);
     setLoading(true);
     try {
-        const res = await axios.get(`http://localhost:8000/api/chat/history?session_id=${sessionId}`, {
+        
+        const res = await axios.get(`${API_BASE_URL}/api/chat/history?session_id=${sessionId}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -76,7 +77,7 @@ const ChatInterface = () => {
         setLoading(true);
 
         try {
-            const res = await axios.post('http://localhost:8000/api/chat/', {
+            const res = await axios.post(`${API_BASE_URL}/api/chat/`, {
                 message: input,
                 session_id: currentSessionId
             }, {
